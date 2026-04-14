@@ -1,0 +1,22 @@
+# 核心依赖
+pipecat-ai
+
+# 服务集成
+transformers
+python-dotenv
+
+# Web框架
+fastapi
+uvicorn
+
+# 前端依赖
+websockets
+
+# 开发工具
+pytest
+black
+flake8
+
+# 可选服务集成（根据需要安装）
+# pipecat-ai[deepgram,openai,elevenlabs]
+# pipecat-ai[google,anthropic]

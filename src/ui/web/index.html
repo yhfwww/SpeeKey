@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpeeKey - 智能语音输入法</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            margin: 30px 0;
+        }
+        button {
+            padding: 15px 30px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 0 10px;
+        }
+        #start-btn {
+            background-color: #4CAF50;
+            color: white;
+        }
+        #stop-btn {
+            background-color: #f44336;
+            color: white;
+        }
+        #result {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #f0f0f0;
+            border-radius: 5px;
+            min-height: 100px;
+            font-size: 18px;
+        }
+        #status {
+            text-align: center;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+        .prediction-section {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+        }
+        #prediction-input {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        #suggestions {
+            margin-top: 10px;
+            min-height: 80px;
+        }
+        .suggestion-item {
+            padding: 8px 12px;
+            margin: 5px 0;
+            background-color: #e3f2fd;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .suggestion-item:hover {
+            background-color: #bbdefb;
+        }
+        .synthesis-section {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+        }
+        #synthesis-input {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        #synthesize-btn {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+        #synthesize-btn:hover {
+            background-color: #1976D2;
+        }
+        #synthesis-status {
+            margin-top: 10px;
+            min-height: 40px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SpeeKey - 智能语音输入法</h1>
+        <div id="status">就绪</div>
+        <div class="controls">
+            <button id="start-btn">开始录音</button>
+            <button id="stop-btn" disabled>停止录音</button>
+        </div>
+        <div id="result">识别结果将显示在这里...</div>
+        
+        <div class="prediction-section">
+            <h3>智能预测</h3>
+            <input type="text" id="prediction-input" placeholder="输入部分文本获取预测...">
+            <div id="suggestions">预测建议将显示在这里...</div>
+        </div>
+        
+        <div class="synthesis-section">
+            <h3>语音合成</h3>
+            <input type="text" id="synthesis-input" placeholder="输入文本进行语音合成...">
+            <button id="synthesize-btn">合成语音</button>
+            <div id="synthesis-status">语音合成状态将显示在这里...</div>
+        </div>
+    </div>
+
+    <script>
+        let socket;
+        let mediaRecorder;
+        let audioChunks = [];
+        
+        // 初始化WebSocket连接
+        function initWebSocket() {
+            socket = new WebSocket('ws://localhost:8000/ws');
+            
+            socket.onopen = function() {
+                console.log('WebSocket连接已建立');
+                document.getElementById('status').textContent = '已连接';
+            };
+            
+            socket.onmessage = function(event) {
+                console.log('收到消息:', event.data);
+                document.getElementById('result').textContent = event.data;
+            };
+            
+            socket.onclose = function() {
+                console.log('WebSocket连接已关闭');
+                document.getElementById('status').textContent = '已断开';
+            };
+            
+            socket.onerror = function(error) {
+                console.error('WebSocket错误:', error);
+                document.getElementById('status').textContent = '错误';
+            };
+        }
+        
+        // 开始录音
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                
+                mediaRecorder.ondataavailable = function(e) {
+                    audioChunks.push(e.data);
+                };
+                
+                mediaRecorder.onstop = async function() {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    const arrayBuffer = await audioBlob.arrayBuffer();
+                    const uint8Array = new Uint8Array(arrayBuffer);
+                    
+                    if (socket.readyState === WebSocket.OPEN) {
+                        socket.send(uint8Array);
+                    }
+                    
+                    audioChunks = [];
+                };
+                
+                mediaRecorder.start();
+                document.getElementById('status').textContent = '录音中...';
+                document.getElementById('start-btn').disabled = true;
+                document.getElementById('stop-btn').disabled = false;
+            } catch (error) {
+                console.error('录音错误:', error);
+                document.getElementById('status').textContent = '录音失败';
+            }
+        }
+        
+        // 停止录音
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                document.getElementById('status').textContent = '处理中...';
+                document.getElementById('start-btn').disabled = false;
+                document.getElementById('stop-btn').disabled = true;
+            }
+        }
+        
+        // 获取预测建议
+        async function getPredictions() {
+            const input = document.getElementById('prediction-input').value;
+            if (!input.trim()) {
+                document.getElementById('suggestions').innerHTML = '预测建议将显示在这里...';
+                return;
+            }
+            
+            try {
+                const response = await fetch('http://localhost:8000/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ partial_text: input })
+                });
+                
+                const data = await response.json();
+                
+                if (data.suggestions && data.suggestions.length > 0) {
+                    let suggestionsHtml = '';
+                    data.suggestions.forEach(suggestion => {
+                        suggestionsHtml += `<div class="suggestion-item">${suggestion}</div>`;
+                    });
+                    document.getElementById('suggestions').innerHTML = suggestionsHtml;
+                    
+                    // 添加点击事件
+                    document.querySelectorAll('.suggestion-item').forEach(item => {
+                        item.addEventListener('click', function() {
+                            document.getElementById('prediction-input').value = this.textContent;
+                            document.getElementById('suggestions').innerHTML = '预测建议将显示在这里...';
+                        });
+                    });
+                } else {
+                    document.getElementById('suggestions').innerHTML = '没有找到预测建议';
+                }
+            } catch (error) {
+                console.error('预测错误:', error);
+                document.getElementById('suggestions').innerHTML = '获取预测失败';
+            }
+        }
+        
+        // 语音合成功能
+        async function synthesizeSpeech() {
+            const text = document.getElementById('synthesis-input').value;
+            if (!text.trim()) {
+                document.getElementById('synthesis-status').textContent = '请输入要合成的文本';
+                return;
+            }
+            
+            try {
+                document.getElementById('synthesis-status').textContent = '正在合成语音...';
+                
+                const response = await fetch('http://localhost:8000/synthesize', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ text: text })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('synthesis-status').textContent = '语音合成成功';
+                } else {
+                    document.getElementById('synthesis-status').textContent = data.message || '语音合成失败';
+                }
+            } catch (error) {
+                console.error('语音合成错误:', error);
+                document.getElementById('synthesis-status').textContent = '语音合成失败';
+            }
+        }
+        
+        // 事件监听器
+        document.getElementById('start-btn').addEventListener('click', startRecording);
+        document.getElementById('stop-btn').addEventListener('click', stopRecording);
+        document.getElementById('prediction-input').addEventListener('input', getPredictions);
+        document.getElementById('synthesize-btn').addEventListener('click', synthesizeSpeech);
+        
+        // 初始化
+        window.onload = function() {
+            initWebSocket();
+        };
+    </script>
+</body>
+</html>
