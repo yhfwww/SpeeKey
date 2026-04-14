@@ -1,5 +1,7 @@
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 import uvicorn
 import sys
 import os
@@ -21,7 +23,11 @@ app.add_middleware(
 pipeline = SpeeKeyPipeline()
 
 @app.get("/")
-def read_root():
+async def read_root():
+    # 返回前端页面
+    html_path = os.path.join(os.path.dirname(__file__), "ui", "web", "index.html")
+    if os.path.exists(html_path):
+        return FileResponse(html_path)
     return {"message": "SpeeKey API is running"}
 
 @app.websocket("/ws")
