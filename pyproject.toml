@@ -6,11 +6,11 @@ readme = "README.md"
 requires-python = ">=3.13.0"
 dependencies = [
     "fastapi>=0.135.3",
-    "pipecat-ai>=1.0.0",
+    "pipecat-ai[deepgram,elevenlabs,openai]>=1.0.0",
     "python-dotenv>=1.2.2",
     "transformers>=5.5.4",
     "uvicorn>=0.44.0",
-    "websockets>=16.0",
+    "websockets>=13.1,<16.0",
 ]
 
 [dependency-groups]

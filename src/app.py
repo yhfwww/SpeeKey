@@ -6,7 +6,6 @@ import uvicorn
 import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
-from pipeline import SpeeKeyPipeline
 
 app = FastAPI()
 
@@ -19,8 +18,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 初始化管线
-pipeline = SpeeKeyPipeline()
+# 延迟初始化管线
+pipeline = None
+
+async def get_pipeline():
+    global pipeline
+    if pipeline is None:
+        from pipeline import SpeeKeyPipeline
+        pipeline = SpeeKeyPipeline()
+    return pipeline
 
 @app.get("/")
 async def read_root():
@@ -37,6 +43,7 @@ async def websocket_endpoint(websocket: WebSocket):
         while True:
             data = await websocket.receive_bytes()
             # 处理音频数据
+            pipeline = await get_pipeline()
             result = await pipeline.run(data)
             # 返回识别结果
             await websocket.send_text(result)
@@ -55,6 +62,7 @@ class PredictionRequest(BaseModel):
 async def get_prediction(request: PredictionRequest):
     """获取输入预测建议"""
     try:
+        pipeline = await get_pipeline()
         suggestions = await pipeline.get_prediction(request.partial_text)
         return {"suggestions": suggestions}
     except Exception as e:
@@ -67,6 +75,7 @@ class SynthesisRequest(BaseModel):
 async def synthesize_speech(request: SynthesisRequest):
     """将文本合成为语音"""
     try:
+        pipeline = await get_pipeline()
         audio_data = await pipeline.synthesize_speech(request.text)
         if audio_data:
             return {"success": True}
