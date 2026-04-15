@@ -122,15 +122,14 @@ SpeeKey - Speech+Key，语音即按键
 
 ```bash
 # 使用 uv（推荐）
-uv init speekey
-cd speekey
-uv add pipecat-ai
+# 项目已初始化，直接安装依赖
+uv install
 
-# 安装特定服务的依赖
+# 安装特定服务的依赖（如需）
 uv add "pipecat-ai[deepgram,openai,elevenlabs]"
 
 # 或使用 pip
-pip install pipecat-ai
+pip install -r requirements.txt
 pip install "pipecat-ai[deepgram,openai,elevenlabs]"
 ```
 
