@@ -17,6 +17,15 @@ SpeeKey 是一个语音处理系统，通过集成先进的语音识别、自然
 - **前端**：HTML, JavaScript
 
 ## 安装说明
+### 使用 uv（推荐）
+1. 克隆项目到本地
+2. 安装依赖：`uv install`
+3. 创建 `.env` 文件并添加以下环境变量：
+   - `DEEPGRAM_API_KEY`：Deepgram API 密钥
+   - `OPENAI_API_KEY`：OpenAI API 密钥
+   - `ELEVENLABS_API_KEY`：ElevenLabs API 密钥
+
+### 使用 pip
 1. 克隆项目到本地
 2. 安装依赖：`pip install -r requirements.txt`
 3. 创建 `.env` 文件并添加以下环境变量：
