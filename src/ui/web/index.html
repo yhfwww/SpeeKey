@@ -148,7 +148,7 @@
         
         // 初始化WebSocket连接
         function initWebSocket() {
-            socket = new WebSocket('ws://localhost:8000/ws');
+            socket = new WebSocket('ws://localhost:8001/ws');
             
             socket.onopen = function() {
                 console.log('WebSocket连接已建立');
@@ -222,7 +222,7 @@
             }
             
             try {
-                const response = await fetch('http://localhost:8000/predict', {
+                const response = await fetch('http://localhost:8001/predict', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -266,7 +266,7 @@
             try {
                 document.getElementById('synthesis-status').textContent = '正在合成语音...';
                 
-                const response = await fetch('http://localhost:8000/synthesize', {
+                const response = await fetch('http://localhost:8001/synthesize', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
