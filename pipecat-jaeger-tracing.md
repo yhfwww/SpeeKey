@@ -1,13 +1,17 @@
-# Pipecat Jaeger 追踪文档
+# 使用 Jaeger + OpenTelemetry 监控 Pipecat 语音 Agent 指南
 
-本指南展示了如何在 Pipecat 服务中集成 OpenTelemetry 追踪功能，使用 Jaeger 来可视化服务调用、性能指标和依赖关系。
+本指南展示了如何在 Pipecat 服务中集成 OpenTelemetry 追踪功能，使用 Jaeger 来可视化服务调用、性能指标和依赖关系，帮助您在开发中有效利用性能监控和跟踪来优化语音 Agent 系统。
 
 ## 目录
 
 - [概述](#概述)
 - [快速开始](#快速开始)
+- [安装依赖](#安装依赖)
 - [配置详解](#配置详解)
 - [代码示例](#代码示例)
+- [Trace 层级结构](#trace-层级结构)
+- [在 Jaeger UI 中查看追踪](#在-jaeger-ui-中查看追踪)
+- [性能优化指南](#性能优化指南)
 - [故障排除](#故障排除)
 - [参考资料](#参考资料)
 
@@ -15,70 +19,78 @@
 
 Pipecat 通过 OpenTelemetry 提供了完整的分布式追踪功能，让你能够：
 
-- 可视化服务调用链
-- 监控性能指标
-- 追踪依赖关系
-- 诊断性能瓶颈
+- **可视化服务调用链**：清晰展示 STT、LLM、TTS 各环节的调用关系
+- **监控性能指标**：实时追踪每个服务的耗时和资源使用
+- **追踪依赖关系**：理解组件间的交互模式
+- **诊断性能瓶颈**：快速定位延迟来源，指导优化决策
 
 ## 快速开始
 
 ### 1. 启动 Jaeger 容器
 
-使用 Docker 运行 Jaeger 来收集和可视化追踪数据：
+您已成功部署 Jaeger 容器：
 
 ```bash
 docker run -d --name jaeger \
-  -e COLLECTOR_ZIPKIN_HOST_PORT=:9411 \
   -p 16686:16686 \
-  -p 4317:4317 \
-  -p 4318:4318 \
+  -p 14317:4317 \
+  -p 14318:4318 \
   jaegertracing/all-in-one:latest
 ```
 
 **端口说明：**
-- `16686`: Jaeger UI 界面
-- `4317`: OTLP gRPC 接收端
-- `4318`: OTLP HTTP 接收端
+- `16686`: Jaeger UI 界面（浏览器访问）
+- `14317`: OTLP gRPC 接收端（映射到容器内部 4317）
+- `14318`: OTLP HTTP 接收端（映射到容器内部 4318）
+
+> **注意**：由于您使用了端口映射 `14317:4317`，OTLP 端点应配置为 `http://localhost:14317`
 
 ### 2. 配置环境变量
 
-创建 `.env` 文件，配置你的 API 密钥并启用追踪：
+创建 `.env` 文件，配置 API 密钥并启用追踪：
 
 ```env
-# 服务 API 密钥
-DEEPGRAM_API_KEY=your_key_here
-CARTESIA_API_KEY=your_key_here
-OPENAI_API_KEY=your_key_here
-
 # 启用追踪
 ENABLE_TRACING=true
 
-# OTLP 端点（默认指向本地 Jaeger）
-OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+# OTLP 端点（指向本地 Jaeger，注意端口映射）
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:14317
 
-# 启用控制台输出用于调试（可选）
+# 调试时可开启控制台输出
 # OTEL_CONSOLE_EXPORT=true
+
+# 服务 API Keys
+DEEPGRAM_API_KEY=your_key_here
+CARTESIA_API_KEY=your_key_here
+OPENAI_API_KEY=your_key_here
 ```
 
-### 3. 安装依赖
-
-使用 uv 安装项目依赖：
-
-```bash
-uv sync
-```
-
-> **注意**：确保只安装 grpc 导出器。如果存在冲突，请卸载 http 导出器。
-
-### 4. 运行示例
+### 3. 运行示例
 
 ```bash
 uv run bot.py
 ```
 
-### 5. 在 Jaeger 中查看追踪
+### 4. 查看追踪数据
 
-打开浏览器访问 [http://localhost:16686](http://localhost:16686)，选择 "pipecat-demo" 服务来查看追踪数据。
+打开浏览器访问 [http://localhost:16686](http://localhost:16686)，选择服务名（如 `pipecat-demo`）查看追踪。
+
+## 安装依赖
+
+使用 pip 安装核心依赖：
+
+```bash
+pip install "pipecat-ai[tracing]"
+pip install opentelemetry-exporter-otlp-proto-grpc
+```
+
+或使用 uv（推荐）：
+
+```bash
+uv sync
+```
+
+> **注意**：确保只安装 gRPC 导出器。如果存在冲突，请卸载 HTTP 导出器。
 
 ## 配置详解
 
@@ -92,7 +104,7 @@ uv run bot.py
 
 ### 依赖配置
 
-在 `pyproject.toml` 中定义了项目依赖：
+在 `pyproject.toml` 中定义项目依赖：
 
 ```toml
 [project]
@@ -148,28 +160,22 @@ load_dotenv(override=True)
 
 IS_TRACING_ENABLED = bool(os.getenv("ENABLE_TRACING"))
 
-# 初始化追踪（如果启用）
+# Step 1: 初始化 OpenTelemetry，指向本地 Jaeger
 if IS_TRACING_ENABLED:
-    # 创建导出器
     otlp_exporter = OTLPSpanExporter(
         endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"),
         insecure=True,
     )
-    
-    # 设置追踪
     setup_tracing(
         service_name="pipecat-demo",
         exporter=otlp_exporter,
         console_export=bool(os.getenv("OTEL_CONSOLE_EXPORT")),
     )
-    
     logger.info("OpenTelemetry tracing initialized")
 
 async def fetch_weather_from_api(params: FunctionCallParams):
     await params.result_callback({"conditions": "nice", "temperature": "75"})
 
-# 我们存储函数，这样对象（如 SileroVADAnalyzer）不会被实例化
-# 当选择所需的传输时，函数将被调用
 transport_params = {
     "daily": lambda: DailyParams(
         audio_in_enabled=True,
@@ -188,6 +194,7 @@ transport_params = {
 async def run_bot(transport: BaseTransport):
     logger.info(f"Starting bot")
     
+    # Step 2: 创建服务
     stt = DeepgramSTTService(api_key=os.getenv("DEEPGRAM_API_KEY"))
     tts = CartesiaTTSService(
         api_key=os.getenv("CARTESIA_API_KEY"),
@@ -199,12 +206,10 @@ async def run_bot(transport: BaseTransport):
         api_key=os.getenv("OPENAI_API_KEY"),
         settings=OpenAILLMService.Settings(
             temperature=0.5,
-            system_instruction="You are a helpful LLM in a WebRTC call. Your goal is to demonstrate your capabilities in a succinct way. Your output will be converted to audio so don't include special characters in your answers. Respond to what the user said in a creative and helpful way.",
+            system_instruction="You are a helpful LLM in a WebRTC call.",
         ),
     )
     
-    # 你也可以注册一个函数名 None 来获取所有函数
-    # 发送到同一个回调，并带有额外的 function_name 参数
     llm.register_function("get_current_weather", fetch_weather_from_api)
     
     @llm.event_handler("on_function_calls_started")
@@ -222,14 +227,13 @@ async def run_bot(transport: BaseTransport):
             "format": {
                 "type": "string",
                 "enum": ["celsius", "fahrenheit"],
-                "description": "The temperature unit to use. Infer this from the user's location.",
+                "description": "The temperature unit to use.",
             },
         },
         required=["location", "format"],
     )
     
     tools = ToolsSchema(standard_tools=[weather_function])
-    
     context = LLMContext(tools=tools)
     user_aggregator, assistant_aggregator = LLMContextAggregatorPair(
         context,
@@ -238,6 +242,7 @@ async def run_bot(transport: BaseTransport):
         ),
     )
     
+    # Step 3: 构建 Pipeline
     pipeline = Pipeline(
         [
             transport.input(),
@@ -250,21 +255,22 @@ async def run_bot(transport: BaseTransport):
         ]
     )
     
+    # Step 4: 创建 PipelineTask，启用 tracing
     task = PipelineTask(
         pipeline,
         params=PipelineParams(
-            enable_metrics=True,
-            enable_usage_metrics=True,
+            enable_metrics=True,        # 启用指标（部分服务指标必须）
+            enable_usage_metrics=True,  # 启用用量统计
         ),
-        enable_tracing=IS_TRACING_ENABLED,
-        # 可选：添加对话 ID 来跟踪对话
-        # conversation_id="8df26cc1-6db0-4a7a-9930-1e037c8f1fa2",
+        enable_tracing=IS_TRACING_ENABLED,            # 启用 tracing
+        enable_turn_tracking=True,                    # 启用对话轮次追踪
+        # conversation_id="customer-123",             # 可选，不填则自动生成
+        # additional_span_attributes={"session.id": "abc-123"}  # 可选附加属性
     )
     
     @transport.event_handler("on_client_connected")
     async def on_client_connected(transport, client):
         logger.info(f"Client connected")
-        # 开始对话
         await task.queue_frames([LLMRunFrame()])
     
     @transport.event_handler("on_client_disconnected")
@@ -302,7 +308,6 @@ if IS_TRACING_ENABLED:
         endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"),
         insecure=True,
     )
-    
     setup_tracing(
         service_name="pipecat-demo",
         exporter=otlp_exporter,
@@ -316,14 +321,78 @@ if IS_TRACING_ENABLED:
 task = PipelineTask(
     pipeline,
     params=PipelineParams(
-        enable_metrics=True,
-        enable_usage_metrics=True,
+        enable_metrics=True,        # 启用指标
+        enable_usage_metrics=True,  # 启用用量统计
     ),
-    enable_tracing=IS_TRACING_ENABLED,
-    # 可选：添加对话 ID
-    # conversation_id="8df26cc1-6db0-4a7a-9930-1e037c8f1fa2",
+    enable_tracing=True,            # 启用 tracing
+    enable_turn_tracking=True,      # 启用对话轮次追踪
+    conversation_id="customer-123", # 可选，不填则自动生成
+    additional_span_attributes={"session.id": "abc-123"}  # 可选附加属性
 )
 ```
+
+## Trace 层级结构
+
+Pipecat 的 trace 按对话自然结构组织，便于分析每个环节的延迟：
+
+```
+Conversation (conversation)
+├── turn
+│   ├── stt_deepgramsttservice
+│   ├── llm_openaillmservice
+│   └── tts_cartesiattsservice
+└── turn
+    ├── stt_deepgramsttservice
+    ├── llm_openaillmservice
+    └── tts_cartesiattsservice
+```
+
+每个 span 包含：
+- **STT/LLM/TTS 各服务的耗时**
+- **TTFB（Time To First Byte）指标**，用于延迟分析
+- **LLM token 用量**、**TTS 字符数**等使用统计
+
+## 在 Jaeger UI 中查看追踪
+
+打开浏览器访问 [http://localhost:16686](http://localhost:16686)：
+
+1. **选择服务**：在 "Service" 下拉框中选择 `pipecat-demo`
+2. **查询追踪**：点击 "Find Traces" 按钮
+3. **分析追踪**：点击任意 trace 查看详细的调用链和耗时分布
+
+通过 Jaeger UI，您可以：
+- 查看每轮对话中各服务的耗时分布
+- 识别延迟最高的环节
+- 比较不同对话的性能差异
+- 分析服务依赖关系
+
+## 性能优化指南
+
+通过 Jaeger 追踪数据，您可以有针对性地优化语音 Agent 系统：
+
+### 1. STT 优化
+- 如果 STT 耗时过长，考虑：
+  - 调整 VAD 灵敏度
+  - 优化音频预处理
+  - 考虑使用更快的 STT 服务
+
+### 2. LLM 优化
+- 如果 LLM 响应时间过长，考虑：
+  - 调整 temperature 参数
+  - 使用更小的模型
+  - 优化 prompt 长度
+  - 启用流式响应
+
+### 3. TTS 优化
+- 如果 TTS 耗时过长，考虑：
+  - 选择更轻量的语音模型
+  - 启用流式 TTS
+  - 优化音频编码设置
+
+### 4. Pipeline 优化
+- 分析各组件之间的等待时间
+- 考虑并行处理某些步骤
+- 优化数据流转效率
 
 ## Docker 部署
 
@@ -350,20 +419,30 @@ COPY ./bot.py bot.py
 
 ## 故障排除
 
-### 问题 1：Jaeger 中没有显示追踪
+| 问题 | 解决方法 |
+|------|----------|
+| Jaeger 中看不到 trace | 确认 Docker 容器正在运行，OTLP endpoint 配置正确（注意端口映射） |
+| 连接错误 | 检查网络连通性，确认 14317 端口可访问（或您映射的其他端口） |
+| 指标缺失 | 确认 `enable_metrics=True` 已在 `PipelineParams` 中设置 |
+| 调试验证 | 设置 `OTEL_CONSOLE_EXPORT=true`，在控制台直接查看 trace 输出 |
+
+### 详细排查步骤
+
+#### 问题 1：Jaeger 中没有显示追踪
 
 **解决方案：**
 - 确认 Docker 容器正在运行：`docker ps`
-- 检查 OTLP 端点配置是否正确
+- 检查 OTLP 端点配置是否正确（根据您的端口映射，应为 `http://localhost:14317`）
 - 验证 `ENABLE_TRACING=true` 已设置
 
-### 问题 2：连接错误
+#### 问题 2：连接错误
 
 **解决方案：**
 - 检查网络连接到 Jaeger 容器
-- 确认端口 4317 没有被防火墙阻止
+- 确认端口 14317（或您映射的端口）没有被防火墙阻止
+- 使用 `telnet localhost 14317` 或 `curl http://localhost:14317` 测试连通性
 
-### 问题 3：导出器问题
+#### 问题 3：导出器问题
 
 **解决方案：**
 - 尝试使用控制台导出器进行调试：设置 `OTEL_CONSOLE_EXPORT=true`
@@ -373,5 +452,6 @@ COPY ./bot.py bot.py
 
 - [Jaeger 官方文档](https://www.jaegertracing.io/docs/latest/)
 - [OpenTelemetry Python 文档](https://opentelemetry.io/docs/languages/python/)
+- [Pipecat OpenTelemetry API 参考](https://docs.pipecat.ai/api-reference/server/utilities/opentelemetry)
 - [Pipecat GitHub 仓库](https://github.com/pipecat-ai/pipecat)
 - [Pipecat Examples](https://github.com/pipecat-ai/pipecat-examples)
