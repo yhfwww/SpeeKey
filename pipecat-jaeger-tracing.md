@@ -5,6 +5,7 @@
 ## 目录
 
 - [概述](#概述)
+- [什么是 OpenTelemetry 和 Jaeger](#什么是-opentelemetry-和-jaeger)
 - [快速开始](#快速开始)
 - [安装依赖](#安装依赖)
 - [配置详解](#配置详解)
@@ -23,6 +24,68 @@ Pipecat 通过 OpenTelemetry 提供了完整的分布式追踪功能，让你能
 - **监控性能指标**：实时追踪每个服务的耗时和资源使用
 - **追踪依赖关系**：理解组件间的交互模式
 - **诊断性能瓶颈**：快速定位延迟来源，指导优化决策
+
+## 什么是 OpenTelemetry 和 Jaeger
+
+### OpenTelemetry
+
+**OpenTelemetry** 是 Cloud Native Computing Foundation (CNCF) 主导的开源项目，提供统一的 API、SDK、工具和集成，用于采集和导出分布式系统的遥测数据（包括 traces、metrics、logs）。
+
+**核心概念：**
+
+| 概念 | 说明 |
+|------|------|
+| **Trace** | 表示一次完整的请求调用链，贯穿所有参与的服务 |
+| **Span** | Trace 的基本单元，代表一个具体的操作（如 HTTP 调用、函数执行） |
+| **Span Context** | 包含唯一标识（Trace ID、Span ID）和上下文信息，用于跨服务传播 |
+| **Baggage** | 用户自定义的元数据（键值对），可附加到分布式上下文中进行传播 |
+| **OTLP** | OpenTelemetry Protocol，用于传输遥测数据的标准协议 |
+
+OpenTelemetry 支持多种编程语言（Python、Go、Java、Node.js 等），开发者可以通过 SDK 自动或手动注入追踪上下文，实现跨服务的端到端追踪。
+
+### Jaeger
+
+**Jaeger** 是由 Uber Technologies 于 2016 年开源的分布式追踪平台，后捐赠给 CNCF 成为毕业项目。它作为追踪后端系统，负责接收、存储、处理和可视化分布式追踪数据。
+
+**核心组件：**
+
+| 组件 | 作用 |
+|------|------|
+| **Collector** | 接收来自各服务的追踪数据，进行验证、索引和存储 |
+| **Query** | 提供 Web UI 查询接口，检索和展示追踪数据 |
+| **Agent** | 本地守护进程，监听 UDP 端口接收 spans，批量发送至 Collector |
+| **Ingester** | 从 Kafka 读取数据并写入存储后端 |
+
+**主要功能：**
+- 监控和排查分布式工作流
+- 识别性能瓶颈
+- 追踪问题根源
+- 分析服务依赖关系
+
+### 两者关系
+
+OpenTelemetry 和 Jaeger 是互补的：
+
+1. **OpenTelemetry** 负责在应用程序中生成和导出追踪数据
+2. **Jaeger** 负责接收、存储和可视化这些数据
+3. Jaeger 原生支持 OpenTelemetry 的 OTLP 协议，可直接接收 OpenTelemetry SDK 发送的数据
+
+```
+应用程序
+    │
+    ├─ OpenTelemetry SDK ────────┐
+    │      (生成追踪数据)          │
+    │                             ▼
+    │                    OTLP Protocol
+    │                             │
+    └─────────────────────────────► Jaeger Collector
+                                        │
+                                        ▼
+                                Jaeger Query + UI
+                                        │
+                                        ▼
+                                可视化追踪数据
+```
 
 ## 快速开始
 
