@@ -1,5 +1,8 @@
 # 使用 Jaeger + OpenTelemetry 监控 Pipecat 语音 Agent 指南
 
+**作者**：YaoHongfu  
+**文档创建时间**：2026-04-29
+
 本指南展示了如何在 Pipecat 服务中集成 OpenTelemetry 追踪功能，使用 Jaeger 来可视化服务调用、性能指标和依赖关系，帮助您在开发中有效利用性能监控和跟踪来优化语音 Agent 系统。
 
 ## 目录
