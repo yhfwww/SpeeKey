@@ -7,7 +7,7 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 800px;
+            max-width: 900px;
             margin: 0 auto;
             padding: 20px;
             background-color: #f5f5f5;
@@ -22,26 +22,61 @@
             color: #333;
             text-align: center;
         }
+        h2 {
+            color: #555;
+            margin-top: 0;
+        }
+        .nav-tabs {
+            display: flex;
+            border-bottom: 2px solid #eee;
+            margin-bottom: 20px;
+        }
+        .nav-tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 16px;
+            color: #666;
+        }
+        .nav-tab.active {
+            border-bottom: 2px solid #2196F3;
+            color: #2196F3;
+            font-weight: bold;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
         .controls {
             display: flex;
             justify-content: center;
             margin: 30px 0;
         }
         button {
-            padding: 15px 30px;
-            font-size: 16px;
+            padding: 12px 24px;
+            font-size: 14px;
             border: none;
             border-radius: 5px;
             cursor: pointer;
-            margin: 0 10px;
+            margin: 0 8px;
+            transition: background-color 0.3s;
         }
         #start-btn {
             background-color: #4CAF50;
             color: white;
         }
+        #start-btn:hover {
+            background-color: #45a049;
+        }
         #stop-btn {
             background-color: #f44336;
             color: white;
+        }
+        #stop-btn:hover {
+            background-color: #da190b;
         }
         #result {
             margin-top: 30px;
@@ -69,6 +104,7 @@
             border: 1px solid #ddd;
             border-radius: 5px;
             margin-bottom: 10px;
+            box-sizing: border-box;
         }
         #suggestions {
             margin-top: 10px;
@@ -97,6 +133,7 @@
             border: 1px solid #ddd;
             border-radius: 5px;
             margin-bottom: 10px;
+            box-sizing: border-box;
         }
         #synthesize-btn {
             padding: 10px 20px;
@@ -115,29 +152,113 @@
             margin-top: 10px;
             min-height: 40px;
         }
+        .settings-section {
+            padding: 20px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+        }
+        .api-key-input {
+            margin-bottom: 20px;
+        }
+        .api-key-input label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        .api-key-input input {
+            width: 100%;
+            padding: 10px;
+            font-size: 14px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        .api-key-status {
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        .status-set {
+            color: #4CAF50;
+        }
+        .status-not-set {
+            color: #f44336;
+        }
+        #save-keys-btn {
+            padding: 12px 30px;
+            font-size: 16px;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #save-keys-btn:hover {
+            background-color: #1976D2;
+        }
+        #save-status {
+            margin-top: 15px;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>SpeeKey - 智能语音输入法</h1>
-        <div id="status">就绪</div>
-        <div class="controls">
-            <button id="start-btn">开始录音</button>
-            <button id="stop-btn" disabled>停止录音</button>
-        </div>
-        <div id="result">识别结果将显示在这里...</div>
         
-        <div class="prediction-section">
-            <h3>智能预测</h3>
-            <input type="text" id="prediction-input" placeholder="输入部分文本获取预测...">
-            <div id="suggestions">预测建议将显示在这里...</div>
+        <div class="nav-tabs">
+            <button class="nav-tab active" data-tab="main">主功能</button>
+            <button class="nav-tab" data-tab="settings">API设置</button>
         </div>
         
-        <div class="synthesis-section">
-            <h3>语音合成</h3>
-            <input type="text" id="synthesis-input" placeholder="输入文本进行语音合成...">
-            <button id="synthesize-btn">合成语音</button>
-            <div id="synthesis-status">语音合成状态将显示在这里...</div>
+        <div id="main-tab" class="tab-content active">
+            <div id="status">就绪</div>
+            <div class="controls">
+                <button id="start-btn">开始录音</button>
+                <button id="stop-btn" disabled>停止录音</button>
+            </div>
+            <div id="result">识别结果将显示在这里...</div>
+            
+            <div class="prediction-section">
+                <h3>智能预测</h3>
+                <input type="text" id="prediction-input" placeholder="输入部分文本获取预测...">
+                <div id="suggestions">预测建议将显示在这里...</div>
+            </div>
+            
+            <div class="synthesis-section">
+                <h3>语音合成</h3>
+                <input type="text" id="synthesis-input" placeholder="输入文本进行语音合成...">
+                <button id="synthesize-btn">合成语音</button>
+                <div id="synthesis-status">语音合成状态将显示在这里...</div>
+            </div>
+        </div>
+        
+        <div id="settings-tab" class="tab-content">
+            <div class="settings-section">
+                <h2>API密钥设置</h2>
+                <p style="color: #666; margin-bottom: 20px;">请配置以下API密钥以使用完整功能</p>
+                
+                <div class="api-key-input">
+                    <label for="deepgram-key">Deepgram API Key (语音识别)</label>
+                    <input type="password" id="deepgram-key" placeholder="输入Deepgram API密钥">
+                    <div id="deepgram-status" class="api-key-status status-not-set">未设置</div>
+                </div>
+                
+                <div class="api-key-input">
+                    <label for="openai-key">OpenAI API Key (智能预测)</label>
+                    <input type="password" id="openai-key" placeholder="输入OpenAI/DeepSeek API密钥">
+                    <div id="openai-status" class="api-key-status status-not-set">未设置</div>
+                </div>
+                
+                <div class="api-key-input">
+                    <label for="elevenlabs-key">ElevenLabs API Key (语音合成)</label>
+                    <input type="password" id="elevenlabs-key" placeholder="输入ElevenLabs API密钥">
+                    <div id="elevenlabs-status" class="api-key-status status-not-set">未设置</div>
+                </div>
+                
+                <button id="save-keys-btn">保存API密钥</button>
+                <div id="save-status"></div>
+            </div>
         </div>
     </div>
 
@@ -287,15 +408,109 @@
             }
         }
         
+        // 切换标签页
+        function setupTabs() {
+            const tabs = document.querySelectorAll('.nav-tab');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    // 移除所有标签的active状态
+                    tabs.forEach(t => t.classList.remove('active'));
+                    // 添加当前标签的active状态
+                    this.classList.add('active');
+                    
+                    // 隐藏所有内容
+                    document.querySelectorAll('.tab-content').forEach(content => {
+                        content.classList.remove('active');
+                    });
+                    
+                    // 显示对应内容
+                    const tabId = this.getAttribute('data-tab');
+                    document.getElementById(tabId + '-tab').classList.add('active');
+                });
+            });
+        }
+        
+        // 获取API密钥状态
+        async function loadAPIKeysStatus() {
+            try {
+                const response = await fetch('http://localhost:8001/api-keys');
+                const data = await response.json();
+                
+                updateKeyStatus('deepgram', data.deepgram_set);
+                updateKeyStatus('openai', data.openai_set);
+                updateKeyStatus('elevenlabs', data.elevenlabs_set);
+            } catch (error) {
+                console.error('获取API密钥状态错误:', error);
+            }
+        }
+        
+        function updateKeyStatus(service, isSet) {
+            const statusEl = document.getElementById(service + '-status');
+            if (isSet) {
+                statusEl.textContent = '已设置';
+                statusEl.className = 'api-key-status status-set';
+            } else {
+                statusEl.textContent = '未设置';
+                statusEl.className = 'api-key-status status-not-set';
+            }
+        }
+        
+        // 保存API密钥
+        async function saveAPIKeys() {
+            const deepgramKey = document.getElementById('deepgram-key').value;
+            const openaiKey = document.getElementById('openai-key').value;
+            const elevenlabsKey = document.getElementById('elevenlabs-key').value;
+            
+            const saveStatusEl = document.getElementById('save-status');
+            saveStatusEl.textContent = '正在保存...';
+            saveStatusEl.style.color = '#333';
+            
+            try {
+                const response = await fetch('http://localhost:8001/api-keys', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        deepgram_api_key: deepgramKey,
+                        openai_api_key: openaiKey,
+                        elevenlabs_api_key: elevenlabsKey
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    saveStatusEl.textContent = data.message;
+                    saveStatusEl.style.color = '#4CAF50';
+                    
+                    // 更新状态显示
+                    updateKeyStatus('deepgram', deepgramKey !== '');
+                    updateKeyStatus('openai', openaiKey !== '');
+                    updateKeyStatus('elevenlabs', elevenlabsKey !== '');
+                } else {
+                    saveStatusEl.textContent = '保存失败: ' + data.error;
+                    saveStatusEl.style.color = '#f44336';
+                }
+            } catch (error) {
+                console.error('保存API密钥错误:', error);
+                saveStatusEl.textContent = '保存失败: ' + error.message;
+                saveStatusEl.style.color = '#f44336';
+            }
+        }
+        
         // 事件监听器
         document.getElementById('start-btn').addEventListener('click', startRecording);
         document.getElementById('stop-btn').addEventListener('click', stopRecording);
         document.getElementById('prediction-input').addEventListener('input', getPredictions);
         document.getElementById('synthesize-btn').addEventListener('click', synthesizeSpeech);
+        document.getElementById('save-keys-btn').addEventListener('click', saveAPIKeys);
         
         // 初始化
         window.onload = function() {
             initWebSocket();
+            setupTabs();
+            loadAPIKeysStatus();
         };
     </script>
 </body>

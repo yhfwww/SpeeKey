@@ -1,7 +1,7 @@
 [project]
 name = "speekey"
 version = "0.1.0"
-description = "Add your description here"
+description = "SpeeKey - Speech+Key，语音即按键"
 readme = "README.md"
 requires-python = ">=3.13.0"
 dependencies = [
@@ -11,6 +11,9 @@ dependencies = [
     "transformers>=5.5.4",
     "uvicorn>=0.44.0",
     "websockets>=16.0",
+    "deepgram-sdk>=3.0.0",
+    "elevenlabs>=1.0.0",
+    "openai>=1.0.0",
 ]
 
 [dependency-groups]
